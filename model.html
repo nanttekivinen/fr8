@@ -1,0 +1,993 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FR8 — Portfolio Monte Carlo</title>
+<meta name="description" content="Interactive Monte Carlo simulation of a venture-style portfolio with dilution, exit profiles, and NPV.">
+<meta property="og:title" content="FR8 — Portfolio Monte Carlo">
+<meta property="og:description" content="An interactive model of portfolio construction with 1,000-run Monte Carlo simulation.">
+<meta property="og:type" content="website">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+* { box-sizing: border-box; }
+:root {
+  --bg: #f6f7f9;
+  --card: #ffffff;
+  --text: #111827;
+  --subtext: #6b7280;
+  --border: #e5e7eb;
+  --accent: #2563eb;
+  --accent-light: #dbeafe;
+  --brand: #0f172a;
+  --success: #059669;
+  --warning: #d97706;
+  --danger: #dc2626;
+  --shadow: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.03);
+}
+html, body { height: 100%; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  margin: 0;
+  padding: 24px;
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+.container { max-width: 1280px; margin: 0 auto; }
+
+/* Brand header */
+.brandbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 0 16px 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 24px;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.brand-mark {
+  width: 36px;
+  height: 36px;
+  background: var(--brand);
+  color: white;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.02em;
+}
+.brand-name {
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+.brand-sub {
+  font-size: 12px;
+  color: var(--subtext);
+  margin-left: 8px;
+  padding-left: 12px;
+  border-left: 1px solid var(--border);
+}
+.illust-badge {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--warning);
+  background: #fef3c7;
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+
+header.intro { margin-bottom: 24px; }
+header.intro h1 {
+  font-size: 26px;
+  font-weight: 600;
+  margin: 0 0 8px 0;
+  letter-spacing: -0.01em;
+}
+header.intro p {
+  color: var(--subtext);
+  margin: 0;
+  max-width: 760px;
+}
+
+.panel {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow);
+}
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+.panel h2 {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--subtext);
+  margin: 0;
+}
+
+.controls-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 24px;
+}
+.control { display: flex; flex-direction: column; gap: 6px; }
+.control label {
+  font-weight: 500;
+  font-size: 12px;
+  color: var(--subtext);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.control .value {
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.2;
+}
+.control .sub {
+  font-size: 11px;
+  color: var(--subtext);
+  min-height: 14px;
+}
+.control input[type=range] {
+  width: 100%;
+  accent-color: var(--accent);
+  margin-top: 4px;
+}
+.control .fixed-value {
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--accent);
+  line-height: 1.2;
+}
+
+.assumptions-table { width: 100%; border-collapse: collapse; }
+.assumptions-table th, .assumptions-table td {
+  padding: 8px 8px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.assumptions-table th {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--subtext);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--border);
+}
+.assumptions-table tfoot td {
+  border-bottom: none;
+  padding-top: 12px;
+}
+.assumptions-table input[type=number] {
+  width: 80px;
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 13px;
+  font-family: inherit;
+  text-align: right;
+}
+.assumptions-table input[type=number]:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.unit { color: var(--subtext); font-size: 12px; margin-left: 4px; }
+.category-badge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 10px;
+  font-weight: 500;
+  font-size: 12px;
+  color: white;
+}
+.diluted-pill {
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+}
+.kpi {
+  padding: 14px;
+  background: var(--bg);
+  border-radius: 8px;
+}
+.kpi-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--subtext);
+  margin-bottom: 6px;
+}
+.kpi-value {
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+}
+.kpi-sub {
+  font-size: 11px;
+  color: var(--subtext);
+  margin-top: 4px;
+  min-height: 14px;
+}
+.positive { color: var(--success); }
+.negative { color: var(--danger); }
+
+.chart-container { position: relative; height: 320px; margin-top: 4px; }
+.charts-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+.charts-grid .panel { margin-bottom: 0; }
+@media (max-width: 880px) {
+  .charts-grid { grid-template-columns: 1fr; }
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+button.secondary {
+  background: white;
+  color: var(--accent);
+  border: 1px solid var(--border);
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+}
+button.secondary:hover { background: var(--accent-light); border-color: var(--accent); }
+
+.warning {
+  color: var(--warning);
+  font-size: 12px;
+  font-weight: 500;
+}
+.notes {
+  font-size: 12px;
+  color: var(--subtext);
+  line-height: 1.6;
+  margin-top: 10px;
+}
+.notes ul { margin: 6px 0; padding-left: 18px; }
+.notes li { margin-bottom: 4px; }
+.notes code {
+  background: var(--bg);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 11px;
+}
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--subtext);
+}
+.legend-item { display: flex; align-items: center; gap: 6px; }
+.legend-swatch { width: 10px; height: 10px; border-radius: 2px; }
+
+/* Footer disclaimer */
+.disclaimer {
+  margin-top: 32px;
+  padding: 16px 20px;
+  background: #fefce8;
+  border: 1px solid #fde68a;
+  border-radius: 8px;
+  font-size: 12px;
+  color: #713f12;
+  line-height: 1.6;
+}
+.disclaimer strong { color: #422006; }
+
+footer {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: var(--subtext);
+}
+footer a { color: var(--accent); text-decoration: none; }
+footer a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="brandbar">
+    <div class="brand">
+      <div class="brand-mark">FR8</div>
+      <div class="brand-name">FR8</div>
+      <div class="brand-sub">Portfolio modeling tool</div>
+    </div>
+    <div class="illust-badge">Illustrative model</div>
+  </div>
+
+  <header class="intro">
+    <h1>Portfolio Monte Carlo</h1>
+    <p>An interactive simulation of how a venture-style portfolio could perform. Each investment buys a fixed 2% stake at entry, dilutes through follow-on rounds, exits at a category-dependent valuation, and is discounted back to present value. The full portfolio is re-run across 1,000 independent simulations on every change. All parameters and assumptions below are editable — change them to test the model against your own view.</p>
+  </header>
+
+  <div class="panel">
+    <div class="panel-header"><h2>Portfolio inputs</h2></div>
+    <div class="controls-grid">
+      <div class="control">
+        <label>Entry cost per company</label>
+        <div class="value" id="entryCostVal">$100,000</div>
+        <div class="sub" id="entryCostSub">Implied entry valuation: $5.0M post-money</div>
+        <input type="range" id="entryCost" min="10000" max="1000000" step="5000" value="100000">
+      </div>
+      <div class="control">
+        <label>Number of investments</label>
+        <div class="value" id="numInvVal">100</div>
+        <div class="sub" id="numInvSub">Total deployed: $10.0M</div>
+        <input type="range" id="numInv" min="10" max="500" step="5" value="100">
+      </div>
+      <div class="control">
+        <label>Entry ownership</label>
+        <div class="fixed-value">2.00%</div>
+        <div class="sub">Fixed across all investments</div>
+      </div>
+      <div class="control">
+        <label>Discount rate</label>
+        <div class="value" id="discountVal">15.0%</div>
+        <div class="sub" id="discountSub">Discount factor: 0.247</div>
+        <input type="range" id="discount" min="0" max="30" step="0.5" value="15">
+      </div>
+      <div class="control">
+        <label>Time to exit (years)</label>
+        <div class="value" id="yearsVal">10</div>
+        <div class="sub">Years from entry to liquidity</div>
+        <input type="range" id="years" min="3" max="15" step="1" value="10">
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header">
+      <h2>Exit profile assumptions</h2>
+      <button class="secondary" id="resetDefaults">Reset to defaults</button>
+    </div>
+    <table class="assumptions-table" id="assumptionsTable">
+      <thead>
+        <tr>
+          <th style="width:160px;">Category</th>
+          <th style="width:120px;">Probability</th>
+          <th style="width:200px;">Median exit valuation</th>
+          <th style="width:180px;">Avg dilution from entry</th>
+          <th>Diluted ownership at exit</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+      <tfoot>
+        <tr>
+          <td><strong>Total</strong></td>
+          <td id="probTotal" style="font-weight:600;"></td>
+          <td colspan="3" id="probWarning"></td>
+        </tr>
+      </tfoot>
+    </table>
+    <div class="notes">
+      Exit valuations are drawn from a log-normal centered on the median (σ = 0.5 in log space), so each company within a category gets its own draw. Dilution adds ±5% Gaussian noise on top of the average shown. All values in this table are editable.
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header"><h2>Results — across 1,000 simulated portfolios</h2></div>
+    <div class="kpi-grid" id="kpiGrid"></div>
+  </div>
+
+  <div class="charts-grid">
+    <div class="panel">
+      <div class="panel-header"><h2>Portfolio NPV — distribution of outcomes</h2></div>
+      <div class="chart-container"><canvas id="portfolioHist"></canvas></div>
+      <div class="notes">
+        Each bar counts how many of the 1,000 simulated portfolios landed in that NPV bucket. <span style="color:var(--danger);font-weight:500;">Red</span> bars are portfolios that lost money on an NPV basis; <span style="color:var(--success);font-weight:500;">green</span> bars cleared the bar.
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-header"><h2>Where the NPV actually comes from</h2></div>
+      <div class="chart-container"><canvas id="categoryChart"></canvas></div>
+      <div class="notes">
+        Average NPV contribution per portfolio, by category. The venture power law shows up here: a handful of large outcomes carry the rest of the book.
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header">
+      <h2>Single sample portfolio — company by company</h2>
+      <button class="secondary" id="redrawSample">Draw a new sample portfolio</button>
+    </div>
+    <div class="chart-container" style="height:360px;"><canvas id="companyChart"></canvas></div>
+    <div class="legend" id="companyLegend"></div>
+    <div class="notes">
+      One sampled portfolio, ranked from largest to smallest NPV per company. Bars below the dashed entry-cost line are partial or total losses on that position. Hover for full per-company detail.
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header"><h2>Methodology</h2></div>
+    <div class="notes">
+      <ul>
+        <li><strong>Entry:</strong> every company is acquired at 2% ownership for the configured entry cost. Implied post-money entry valuation = <code>cost ÷ 2%</code>.</li>
+        <li><strong>Outcome category:</strong> each company is independently assigned an outcome (failure, small, medium, large, unicorn) by sampling from the probability table.</li>
+        <li><strong>Exit valuation:</strong> sampled from a log-normal centered on the category median with σ = 0.5. Mean of the draw ≈ median × 1.13, with a long right tail.</li>
+        <li><strong>Dilution:</strong> fraction of original 2% lost across follow-on rounds. Bigger winners raise more capital and dilute more (unicorn ≈ 70%, small ≈ 25% by default). Gaussian noise σ = 5% per draw.</li>
+        <li><strong>Proceeds:</strong> <code>exit valuation × (2% × (1 − dilution))</code>. Zero for failures.</li>
+        <li><strong>NPV:</strong> proceeds × <code>1 / (1 + r)^t</code>. Margin per company = NPV − entry cost.</li>
+        <li><strong>Monte Carlo:</strong> 1,000 independent portfolio simulations re-run on every parameter change. Per-company averages use the full 1,000 × N pool.</li>
+        <li><strong>Not modeled:</strong> follow-on capital, pro-rata, fund expenses/carry, exit timing variance (all exits assumed at year <em>t</em>), management fees, recycling, write-down timing.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="disclaimer">
+    <strong>Important — illustrative only.</strong> This tool is a parametric simulation built on user-configurable assumptions. It is not investment advice, not an offer to sell or solicitation to buy any security, and does not represent the actual or projected performance of any specific fund or vehicle. Numbers shown are simulated outputs of a model, not historical results. Past performance — modeled or otherwise — is not indicative of future results. Returns from venture investing are highly variable, can be zero, and can take many years to be realized.
+  </div>
+
+  <footer>
+    <div>© FR8</div>
+    <div>Open the source assumptions above to inspect or modify the model.</div>
+  </footer>
+
+</div>
+
+<script>
+// =====================================================================
+// FR8 — Portfolio Monte Carlo
+// =====================================================================
+
+const CATEGORIES = [
+  { id: 'failure', name: 'Failure',     defaultProb: 0.55, defaultExit: 0,             defaultDilution: 0.00, color: '#94a3b8' },
+  { id: 'small',   name: 'Small exit',  defaultProb: 0.25, defaultExit: 40_000_000,    defaultDilution: 0.25, color: '#fbbf24' },
+  { id: 'medium',  name: 'Medium exit', defaultProb: 0.12, defaultExit: 200_000_000,   defaultDilution: 0.40, color: '#fb923c' },
+  { id: 'large',   name: 'Large exit',  defaultProb: 0.06, defaultExit: 800_000_000,   defaultDilution: 0.55, color: '#10b981' },
+  { id: 'unicorn', name: 'Unicorn',     defaultProb: 0.02, defaultExit: 3_000_000_000, defaultDilution: 0.70, color: '#3b82f6' },
+];
+
+const ENTRY_OWNERSHIP = 0.02;
+const NUM_SIMS = 1000;
+const EXIT_SIGMA = 0.5;
+const DILUTION_SIGMA = 0.05;
+
+const state = {
+  entryCost: 100_000,
+  numInv: 100,
+  discountRate: 0.15,
+  years: 10,
+  categories: CATEGORIES.map(c => ({
+    ...c,
+    prob: c.defaultProb,
+    exit: c.defaultExit,
+    dilution: c.defaultDilution,
+  })),
+};
+
+// ----------- RNG -----------
+function randn() {
+  let u = 0, v = 0;
+  while (u === 0) u = Math.random();
+  while (v === 0) v = Math.random();
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+}
+function logNormalFromMedian(median, sigma) {
+  if (median <= 0) return 0;
+  return median * Math.exp(sigma * randn());
+}
+function clamp(x, lo, hi) { return Math.max(lo, Math.min(hi, x)); }
+function sampleCategoryIndex(cumProbs) {
+  const r = Math.random();
+  for (let i = 0; i < cumProbs.length; i++) {
+    if (r < cumProbs[i]) return i;
+  }
+  return cumProbs.length - 1;
+}
+
+// ----------- Formatting -----------
+function fmtMoney(x) {
+  const a = Math.abs(x);
+  const sign = x < 0 ? '-' : '';
+  if (a >= 1e9) return sign + '$' + (a / 1e9).toFixed(2) + 'B';
+  if (a >= 1e6) return sign + '$' + (a / 1e6).toFixed(2) + 'M';
+  if (a >= 1e3) return sign + '$' + (a / 1e3).toFixed(0) + 'k';
+  return sign + '$' + a.toFixed(0);
+}
+function fmtMoneyTight(x) {
+  const a = Math.abs(x);
+  const sign = x < 0 ? '-' : '';
+  if (a >= 1e9) return sign + '$' + (a / 1e9).toFixed(1) + 'B';
+  if (a >= 1e6) return sign + '$' + (a / 1e6).toFixed(1) + 'M';
+  if (a >= 1e3) return sign + '$' + (a / 1e3).toFixed(0) + 'k';
+  return sign + '$' + a.toFixed(0);
+}
+function fmtPct(x, d = 1) { return (x * 100).toFixed(d) + '%'; }
+function fmtX(x) { return x.toFixed(2) + 'x'; }
+function fmtInt(x) { return Math.round(x).toLocaleString(); }
+
+// ----------- Simulation -----------
+function simulatePortfolio() {
+  const cats = state.categories;
+  const probs = cats.map(c => Math.max(0, c.prob));
+  const sum = probs.reduce((a, b) => a + b, 0) || 1;
+  const cum = [];
+  let acc = 0;
+  for (const p of probs) {
+    acc += p / sum;
+    cum.push(acc);
+  }
+  const df = 1 / Math.pow(1 + state.discountRate, state.years);
+  const companies = new Array(state.numInv);
+  for (let i = 0; i < state.numInv; i++) {
+    const k = sampleCategoryIndex(cum);
+    const cat = cats[k];
+    const exitValue = logNormalFromMedian(cat.exit, EXIT_SIGMA);
+    const dil = clamp(cat.dilution + DILUTION_SIGMA * randn(), 0, 0.95);
+    const ownership = ENTRY_OWNERSHIP * (1 - dil);
+    const gross = exitValue * ownership;
+    const npv = gross * df;
+    companies[i] = {
+      catIdx: k,
+      catName: cat.name,
+      color: cat.color,
+      exitValue,
+      ownership,
+      gross,
+      npv,
+      margin: npv - state.entryCost,
+    };
+  }
+  return companies;
+}
+
+function runMonteCarlo() {
+  const totalCost = state.numInv * state.entryCost;
+  const portfolios = new Array(NUM_SIMS);
+  for (let s = 0; s < NUM_SIMS; s++) {
+    const companies = simulatePortfolio();
+    let totalGross = 0, totalNpv = 0;
+    for (const c of companies) { totalGross += c.gross; totalNpv += c.npv; }
+    portfolios[s] = {
+      companies,
+      totalCost,
+      totalGross,
+      totalNpv,
+      grossMultiple: totalGross / totalCost,
+      npvMultiple: totalNpv / totalCost,
+      margin: totalNpv - totalCost,
+    };
+  }
+  return portfolios;
+}
+
+// ----------- Histogram helper -----------
+function makeHistogram(values, nBins) {
+  let min = Infinity, max = -Infinity;
+  for (const v of values) { if (v < min) min = v; if (v > max) max = v; }
+  if (min === max) max = min + 1;
+  const w = (max - min) / nBins;
+  const bins = new Array(nBins);
+  for (let i = 0; i < nBins; i++) bins[i] = { lo: min + i * w, hi: min + (i + 1) * w, count: 0 };
+  for (const v of values) {
+    let i = Math.floor((v - min) / w);
+    if (i >= nBins) i = nBins - 1;
+    if (i < 0) i = 0;
+    bins[i].count++;
+  }
+  return bins;
+}
+
+// ----------- Charts -----------
+let portfolioHistChart = null;
+let categoryChart = null;
+let companyChart = null;
+
+function renderPortfolioHist(portfolios) {
+  const npvs = portfolios.map(p => p.totalNpv);
+  const totalCost = portfolios[0].totalCost;
+  const bins = makeHistogram(npvs, 36);
+  const labels = bins.map(b => fmtMoneyTight((b.lo + b.hi) / 2));
+  const data = bins.map(b => b.count);
+  const colors = bins.map(b => (b.hi <= totalCost ? '#fca5a5' : (b.lo < totalCost ? '#fcd34d' : '#86efac')));
+
+  const ctx = document.getElementById('portfolioHist').getContext('2d');
+  if (portfolioHistChart) portfolioHistChart.destroy();
+  portfolioHistChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Simulations',
+        data,
+        backgroundColor: colors,
+        borderWidth: 0,
+        categoryPercentage: 1.0,
+        barPercentage: 1.0,
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            title: (items) => 'NPV around ' + items[0].label,
+            label: (item) => item.raw + ' of 1,000 simulations',
+          },
+        },
+      },
+      scales: {
+        x: {
+          title: { display: true, text: 'Total portfolio NPV (cost basis: ' + fmtMoney(totalCost) + ')' },
+          ticks: { maxRotation: 45, autoSkip: true, maxTicksLimit: 10 },
+          grid: { display: false },
+        },
+        y: {
+          title: { display: true, text: 'Simulations' },
+          beginAtZero: true,
+          ticks: { precision: 0 },
+        },
+      },
+    },
+  });
+}
+
+function renderCategoryChart(portfolios) {
+  const totals = state.categories.map(() => 0);
+  const counts = state.categories.map(() => 0);
+  for (const p of portfolios) {
+    for (const c of p.companies) {
+      totals[c.catIdx] += c.npv;
+      counts[c.catIdx] += 1;
+    }
+  }
+  const avgPerPortfolio = totals.map(t => t / portfolios.length);
+  const labels = state.categories.map(c => c.name);
+  const colors = state.categories.map(c => c.color);
+  const totalNpv = avgPerPortfolio.reduce((a, b) => a + b, 0);
+
+  const ctx = document.getElementById('categoryChart').getContext('2d');
+  if (categoryChart) categoryChart.destroy();
+  categoryChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        data: avgPerPortfolio,
+        backgroundColor: colors,
+        borderWidth: 0,
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      indexAxis: 'y',
+      animation: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (item) => {
+              const i = item.dataIndex;
+              const pct = totalNpv > 0 ? (avgPerPortfolio[i] / totalNpv * 100).toFixed(1) + '%' : '—';
+              const avgCount = counts[i] / portfolios.length;
+              return [
+                'Avg NPV / portfolio: ' + fmtMoney(avgPerPortfolio[i]),
+                'Share of total NPV: ' + pct,
+                'Avg companies in this bucket: ' + avgCount.toFixed(1),
+              ];
+            },
+          },
+        },
+      },
+      scales: {
+        x: {
+          beginAtZero: true,
+          title: { display: true, text: 'Average NPV contribution per portfolio' },
+          ticks: { callback: (v) => fmtMoneyTight(v) },
+        },
+        y: { grid: { display: false } },
+      },
+    },
+  });
+}
+
+const entryLinePlugin = {
+  id: 'entryLine',
+  afterDatasetsDraw(chart, args, opts) {
+    if (opts.y == null) return;
+    const { ctx, chartArea: { left, right }, scales: { y } } = chart;
+    const py = y.getPixelForValue(opts.y);
+    if (py < y.top || py > y.bottom) return;
+    ctx.save();
+    ctx.strokeStyle = opts.color || '#dc2626';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([5, 4]);
+    ctx.beginPath();
+    ctx.moveTo(left, py);
+    ctx.lineTo(right, py);
+    ctx.stroke();
+    if (opts.label) {
+      ctx.fillStyle = opts.color || '#dc2626';
+      ctx.font = '600 11px -apple-system, sans-serif';
+      ctx.textAlign = 'right';
+      ctx.fillText(opts.label, right - 6, py - 4);
+    }
+    ctx.restore();
+  },
+};
+Chart.register(entryLinePlugin);
+
+function renderCompanyChart(companies) {
+  const sorted = [...companies].sort((a, b) => b.npv - a.npv);
+  const data = sorted.map(c => c.npv);
+  const colors = sorted.map(c => c.color);
+  const labels = sorted.map((_, i) => '#' + (i + 1));
+
+  const ctx = document.getElementById('companyChart').getContext('2d');
+  if (companyChart) companyChart.destroy();
+  companyChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        data,
+        backgroundColor: colors,
+        borderWidth: 0,
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: false,
+      plugins: {
+        legend: { display: false },
+        entryLine: { y: state.entryCost, color: '#dc2626', label: 'Entry cost ' + fmtMoney(state.entryCost) },
+        tooltip: {
+          callbacks: {
+            title: (items) => 'Company ' + items[0].label,
+            label: (item) => {
+              const c = sorted[item.dataIndex];
+              return [
+                'Category: ' + c.catName,
+                'Exit valuation: ' + fmtMoney(c.exitValue),
+                'Ownership at exit: ' + fmtPct(c.ownership, 2),
+                'Gross proceeds: ' + fmtMoney(c.gross),
+                'NPV proceeds: ' + fmtMoney(c.npv),
+                'Margin (NPV − cost): ' + fmtMoney(c.margin),
+              ];
+            },
+          },
+        },
+      },
+      scales: {
+        x: {
+          title: { display: true, text: 'Company (ranked by NPV)' },
+          ticks: { maxTicksLimit: 25, autoSkip: true },
+          grid: { display: false },
+        },
+        y: {
+          title: { display: true, text: 'NPV proceeds per company' },
+          beginAtZero: true,
+          ticks: { callback: (v) => fmtMoneyTight(v) },
+        },
+      },
+    },
+  });
+
+  const legend = document.getElementById('companyLegend');
+  const winners = sorted.filter(c => c.npv > state.entryCost).length;
+  const losers = sorted.filter(c => c.npv < state.entryCost).length;
+  legend.innerHTML = state.categories.map(cat => {
+    const n = sorted.filter(c => c.catIdx === state.categories.indexOf(cat)).length;
+    return `<div class="legend-item"><div class="legend-swatch" style="background:${cat.color};"></div>${cat.name} (${n})</div>`;
+  }).join('') + `<div class="legend-item" style="margin-left:auto;"><strong>${winners}</strong>&nbsp;cleared cost · <strong>${losers}</strong>&nbsp;below cost</div>`;
+}
+
+// ----------- KPIs -----------
+function renderKPIs(portfolios) {
+  const totalCost = portfolios[0].totalCost;
+  const npvs   = portfolios.map(p => p.totalNpv).sort((a, b) => a - b);
+  const grosses = portfolios.map(p => p.totalGross).sort((a, b) => a - b);
+  const grossMults = portfolios.map(p => p.grossMultiple).sort((a, b) => a - b);
+  const npvMults = portfolios.map(p => p.npvMultiple).sort((a, b) => a - b);
+
+  const median = arr => arr[Math.floor(arr.length / 2)];
+  const pct = (arr, p) => arr[clamp(Math.floor(arr.length * p), 0, arr.length - 1)];
+  const mean = arr => arr.reduce((a, b) => a + b, 0) / arr.length;
+
+  const medianNpv = median(npvs);
+  const medianGross = median(grosses);
+  const medianNpvMult = median(npvMults);
+  const medianGrossMult = median(grossMults);
+  const meanNpv = mean(npvs);
+  const meanNpvMult = meanNpv / totalCost;
+  const irr = Math.pow(Math.max(medianGrossMult, 0.0001), 1 / state.years) - 1;
+  const lossProb = portfolios.filter(p => p.totalNpv < totalCost).length / portfolios.length;
+
+  let sumNpv = 0, sumGross = 0, count = 0;
+  for (const p of portfolios) {
+    for (const c of p.companies) { sumNpv += c.npv; sumGross += c.gross; count++; }
+  }
+  const avgNpvPerCo = sumNpv / count;
+  const avgMarginPerCo = avgNpvPerCo - state.entryCost;
+
+  const kpis = [
+    { label: 'Total invested', value: fmtMoney(totalCost), sub: fmtInt(state.numInv) + ' × ' + fmtMoney(state.entryCost) },
+    { label: 'Median portfolio NPV', value: fmtMoney(medianNpv),
+      sub: fmtX(medianNpvMult) + ' NPV multiple',
+      cls: medianNpv >= totalCost ? 'positive' : 'negative' },
+    { label: 'Mean portfolio NPV', value: fmtMoney(meanNpv),
+      sub: fmtX(meanNpvMult) + ' · ' + fmtMoney(meanNpv - medianNpv) + ' above median',
+      cls: meanNpv >= totalCost ? 'positive' : 'negative' },
+    { label: 'Median portfolio value', value: fmtMoney(medianGross),
+      sub: 'Gross / undiscounted dollars',
+      cls: medianGross >= totalCost ? 'positive' : 'negative' },
+    { label: 'Median gross multiple', value: fmtX(medianGrossMult),
+      sub: fmtPct(irr) + ' IRR over ' + state.years + 'y',
+      cls: medianGrossMult >= 1 ? 'positive' : 'negative' },
+    { label: 'Avg margin / company', value: fmtMoney(avgMarginPerCo),
+      sub: 'NPV/co ' + fmtMoney(avgNpvPerCo) + ' − cost ' + fmtMoney(state.entryCost),
+      cls: avgMarginPerCo >= 0 ? 'positive' : 'negative' },
+    { label: 'P10 — P90 NPV', value: fmtMoney(pct(npvs, 0.10)) + ' to ' + fmtMoney(pct(npvs, 0.90)),
+      sub: '80% of simulated portfolios land in this range' },
+    { label: 'P(losing money)', value: fmtPct(lossProb),
+      sub: 'Portfolios where NPV < amount invested',
+      cls: lossProb > 0.5 ? 'negative' : (lossProb < 0.2 ? 'positive' : '') },
+  ];
+
+  const grid = document.getElementById('kpiGrid');
+  grid.innerHTML = '';
+  for (const k of kpis) {
+    const div = document.createElement('div');
+    div.className = 'kpi';
+    div.innerHTML = `
+      <div class="kpi-label">${k.label}</div>
+      <div class="kpi-value ${k.cls || ''}">${k.value}</div>
+      <div class="kpi-sub">${k.sub || ''}</div>
+    `;
+    grid.appendChild(div);
+  }
+}
+
+// ----------- Assumptions table -----------
+function renderAssumptionsTable() {
+  const tbody = document.querySelector('#assumptionsTable tbody');
+  tbody.innerHTML = '';
+  state.categories.forEach((cat, i) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><span class="category-badge" style="background:${cat.color};">${cat.name}</span></td>
+      <td><input type="number" min="0" max="100" step="0.5" data-field="prob" data-idx="${i}" value="${(cat.prob * 100).toFixed(1)}"><span class="unit">%</span></td>
+      <td><input type="number" min="0" step="5" data-field="exit" data-idx="${i}" value="${(cat.exit / 1e6).toFixed(0)}"><span class="unit">$M</span></td>
+      <td><input type="number" min="0" max="95" step="5" data-field="dilution" data-idx="${i}" value="${(cat.dilution * 100).toFixed(0)}"><span class="unit">%</span></td>
+      <td><span class="diluted-pill">${fmtPct(ENTRY_OWNERSHIP * (1 - cat.dilution), 2)}</span></td>
+    `;
+    tbody.appendChild(tr);
+  });
+  updateProbTotal();
+  tbody.querySelectorAll('input').forEach(input => {
+    input.addEventListener('input', () => {
+      const i = parseInt(input.dataset.idx);
+      const f = input.dataset.field;
+      const v = parseFloat(input.value);
+      if (isNaN(v)) return;
+      if (f === 'prob') state.categories[i].prob = v / 100;
+      else if (f === 'exit') state.categories[i].exit = v * 1e6;
+      else if (f === 'dilution') state.categories[i].dilution = v / 100;
+      const tr = input.closest('tr');
+      const dilutedCell = tr.querySelectorAll('td')[4];
+      dilutedCell.querySelector('.diluted-pill').textContent = fmtPct(ENTRY_OWNERSHIP * (1 - state.categories[i].dilution), 2);
+      updateProbTotal();
+      scheduleUpdate();
+    });
+  });
+}
+
+function updateProbTotal() {
+  const sum = state.categories.reduce((a, c) => a + c.prob, 0);
+  document.getElementById('probTotal').textContent = (sum * 100).toFixed(1) + '%';
+  const warn = document.getElementById('probWarning');
+  if (Math.abs(sum - 1) > 0.005) {
+    warn.innerHTML = `<span class="warning">Probabilities sum to ${(sum * 100).toFixed(1)}% — values will be normalized to 100% for the simulation.</span>`;
+  } else {
+    warn.innerHTML = '';
+  }
+}
+
+// ----------- Control bindings -----------
+let updateTimer = null;
+function scheduleUpdate() {
+  if (updateTimer) clearTimeout(updateTimer);
+  updateTimer = setTimeout(update, 60);
+}
+
+function updateInputDisplay() {
+  document.getElementById('entryCostVal').textContent = fmtMoney(state.entryCost);
+  document.getElementById('entryCostSub').textContent = 'Implied entry valuation: ' + fmtMoney(state.entryCost / ENTRY_OWNERSHIP) + ' post-money';
+  document.getElementById('numInvVal').textContent = state.numInv;
+  document.getElementById('numInvSub').textContent = 'Total deployed: ' + fmtMoney(state.numInv * state.entryCost);
+  document.getElementById('discountVal').textContent = (state.discountRate * 100).toFixed(1) + '%';
+  document.getElementById('discountSub').textContent = 'Discount factor: ' + (1 / Math.pow(1 + state.discountRate, state.years)).toFixed(3);
+  document.getElementById('yearsVal').textContent = state.years;
+}
+
+function bindControls() {
+  const map = [
+    ['entryCost', v => { state.entryCost = parseInt(v); }],
+    ['numInv',    v => { state.numInv = parseInt(v); }],
+    ['discount',  v => { state.discountRate = parseFloat(v) / 100; }],
+    ['years',     v => { state.years = parseInt(v); }],
+  ];
+  for (const [id, fn] of map) {
+    const el = document.getElementById(id);
+    el.addEventListener('input', () => {
+      fn(el.value);
+      updateInputDisplay();
+      scheduleUpdate();
+    });
+  }
+  document.getElementById('resetDefaults').addEventListener('click', () => {
+    state.categories = CATEGORIES.map(c => ({
+      ...c, prob: c.defaultProb, exit: c.defaultExit, dilution: c.defaultDilution
+    }));
+    renderAssumptionsTable();
+    update();
+  });
+  document.getElementById('redrawSample').addEventListener('click', () => {
+    const cos = simulatePortfolio();
+    renderCompanyChart(cos);
+  });
+}
+
+function update() {
+  updateInputDisplay();
+  const portfolios = runMonteCarlo();
+  renderKPIs(portfolios);
+  renderPortfolioHist(portfolios);
+  renderCategoryChart(portfolios);
+  const sample = portfolios[Math.floor(Math.random() * portfolios.length)];
+  renderCompanyChart(sample.companies);
+}
+
+bindControls();
+renderAssumptionsTable();
+update();
+</script>
+</body>
+</html>
