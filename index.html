@@ -346,15 +346,15 @@ footer a:hover { text-decoration: underline; }
     <div class="controls-grid">
       <div class="control">
         <label>Entry cost per company</label>
-        <div class="value" id="entryCostVal">$100,000</div>
-        <div class="sub" id="entryCostSub">Implied entry valuation: $5.0M post-money</div>
+        <div class="value" id="entryCostVal">€100,000</div>
+        <div class="sub" id="entryCostSub">Implied entry valuation: €5.0M post-money</div>
         <input type="range" id="entryCost" min="10000" max="1000000" step="5000" value="100000">
       </div>
       <div class="control">
         <label>Number of investments</label>
-        <div class="value" id="numInvVal">100</div>
-        <div class="sub" id="numInvSub">Total deployed: $10.0M</div>
-        <input type="range" id="numInv" min="10" max="500" step="5" value="100">
+        <div class="value" id="numInvVal">50</div>
+        <div class="sub" id="numInvSub">Total deployed: €5.0M</div>
+        <input type="range" id="numInv" min="10" max="500" step="5" value="50">
       </div>
       <div class="control">
         <label>Entry ownership</label>
@@ -472,11 +472,11 @@ footer a:hover { text-decoration: underline; }
 // =====================================================================
 
 const CATEGORIES = [
-  { id: 'failure', name: 'Failure',     defaultProb: 0.56, defaultExit: 0,             defaultDilution: 0.00, color: '#94a3b8' },
+  { id: 'failure', name: 'Failure',     defaultProb: 0.55, defaultExit: 0,             defaultDilution: 0.00, color: '#94a3b8' },
   { id: 'small',   name: 'Small exit',  defaultProb: 0.25, defaultExit: 40_000_000,    defaultDilution: 0.25, color: '#fbbf24' },
   { id: 'medium',  name: 'Medium exit', defaultProb: 0.12, defaultExit: 200_000_000,   defaultDilution: 0.40, color: '#fb923c' },
-  { id: 'large',   name: 'Large exit',  defaultProb: 0.04, defaultExit: 500_000_000,   defaultDilution: 0.55, color: '#10b981' },
-  { id: 'unicorn', name: 'Unicorn',     defaultProb: 0.03, defaultExit: 2_500_000_000, defaultDilution: 0.70, color: '#3b82f6' },
+  { id: 'large',   name: 'Large exit',  defaultProb: 0.06, defaultExit: 800_000_000,   defaultDilution: 0.55, color: '#10b981' },
+  { id: 'unicorn', name: 'Unicorn',     defaultProb: 0.02, defaultExit: 3_000_000_000, defaultDilution: 0.70, color: '#3b82f6' },
 ];
 
 const ENTRY_OWNERSHIP = 0.02;
@@ -486,7 +486,7 @@ const DILUTION_SIGMA = 0.05;
 
 const state = {
   entryCost: 100_000,
-  numInv: 100,
+  numInv: 50,
   discountRate: 0.15,
   years: 10,
   categories: CATEGORIES.map(c => ({
@@ -521,18 +521,18 @@ function sampleCategoryIndex(cumProbs) {
 function fmtMoney(x) {
   const a = Math.abs(x);
   const sign = x < 0 ? '-' : '';
-  if (a >= 1e9) return sign + '$' + (a / 1e9).toFixed(2) + 'B';
-  if (a >= 1e6) return sign + '$' + (a / 1e6).toFixed(2) + 'M';
-  if (a >= 1e3) return sign + '$' + (a / 1e3).toFixed(0) + 'k';
-  return sign + '$' + a.toFixed(0);
+  if (a >= 1e9) return sign + '€' + (a / 1e9).toFixed(2) + 'B';
+  if (a >= 1e6) return sign + '€' + (a / 1e6).toFixed(2) + 'M';
+  if (a >= 1e3) return sign + '€' + (a / 1e3).toFixed(0) + 'k';
+  return sign + '€' + a.toFixed(0);
 }
 function fmtMoneyTight(x) {
   const a = Math.abs(x);
   const sign = x < 0 ? '-' : '';
-  if (a >= 1e9) return sign + '$' + (a / 1e9).toFixed(1) + 'B';
-  if (a >= 1e6) return sign + '$' + (a / 1e6).toFixed(1) + 'M';
-  if (a >= 1e3) return sign + '$' + (a / 1e3).toFixed(0) + 'k';
-  return sign + '$' + a.toFixed(0);
+  if (a >= 1e9) return sign + '€' + (a / 1e9).toFixed(1) + 'B';
+  if (a >= 1e6) return sign + '€' + (a / 1e6).toFixed(1) + 'M';
+  if (a >= 1e3) return sign + '€' + (a / 1e3).toFixed(0) + 'k';
+  return sign + '€' + a.toFixed(0);
 }
 function fmtPct(x, d = 1) { return (x * 100).toFixed(d) + '%'; }
 function fmtX(x) { return x.toFixed(2) + 'x'; }
@@ -856,7 +856,7 @@ function renderKPIs(portfolios) {
       sub: fmtX(meanNpvMult) + ' · ' + fmtMoney(meanNpv - medianNpv) + ' above median',
       cls: meanNpv >= totalCost ? 'positive' : 'negative' },
     { label: 'Median portfolio value', value: fmtMoney(medianGross),
-      sub: 'Gross / undiscounted dollars',
+      sub: 'Gross / undiscounted euros',
       cls: medianGross >= totalCost ? 'positive' : 'negative' },
     { label: 'Median gross multiple', value: fmtX(medianGrossMult),
       sub: fmtPct(irr) + ' IRR over ' + state.years + 'y',
@@ -894,7 +894,7 @@ function renderAssumptionsTable() {
     tr.innerHTML = `
       <td><span class="category-badge" style="background:${cat.color};">${cat.name}</span></td>
       <td><input type="number" min="0" max="100" step="0.5" data-field="prob" data-idx="${i}" value="${(cat.prob * 100).toFixed(1)}"><span class="unit">%</span></td>
-      <td><input type="number" min="0" step="5" data-field="exit" data-idx="${i}" value="${(cat.exit / 1e6).toFixed(0)}"><span class="unit">$M</span></td>
+      <td><input type="number" min="0" step="5" data-field="exit" data-idx="${i}" value="${(cat.exit / 1e6).toFixed(0)}"><span class="unit">€M</span></td>
       <td><input type="number" min="0" max="95" step="5" data-field="dilution" data-idx="${i}" value="${(cat.dilution * 100).toFixed(0)}"><span class="unit">%</span></td>
       <td><span class="diluted-pill">${fmtPct(ENTRY_OWNERSHIP * (1 - cat.dilution), 2)}</span></td>
     `;
